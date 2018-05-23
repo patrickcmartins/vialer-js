@@ -269,8 +269,8 @@ class Helpers {
             }))
             .pipe(ifElse(this.settings.PRODUCTION, () => minifier()))
             .pipe(sourcemaps.write('./'))
-            .pipe(gulp.dest(path.join(this.settings.BUILD_DIR, brandName, buildType, 'js')))
             .pipe(size(_extend({title: `${bundleName}.js`}, this.settings.SIZE_OPTIONS)))
+            .pipe(gulp.dest(path.join(this.settings.BUILD_DIR, brandName, buildType, 'js')))
     }
 
 

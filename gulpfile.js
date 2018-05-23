@@ -42,6 +42,8 @@ const writeFileAsync = promisify(fs.writeFile)
 // from .vialer-jsrc and build flags.
 let settings = {}
 
+global.gulpSettings = settings
+
 settings.BUILD_ARCH = argv.arch ? argv.arch : 'x64' // all, or one or more of: ia32, x64, armv7l, arm64, mips64el
 settings.BUILD_DIR = process.env.BUILD_DIR || path.join('./', 'build')
 settings.BUILD_PLATFORM = argv.platform ? argv.platform : 'linux' // all, or one or more of: darwin, linux, mas, win32
@@ -161,15 +163,25 @@ gulp.task('assets', 'Copy (branded) assets to the build directory.', () => {
 
 gulp.task('build', 'Make a branded unoptimized development build.', (done) => {
     // Refresh the brand content with each build.
-    let targetTasks
     if (settings.BUILD_TARGET === 'docs') {
         runSequence(['docs'], done)
         return
-    } else if (settings.BUILD_TARGET === 'electron') targetTasks = ['js-electron']
-    else if (settings.BUILD_TARGET === 'webview') targetTasks = ['js-vendor', 'js-app-bg', 'js-app-fg']
-    else if (['chrome', 'firefox'].includes(settings.BUILD_TARGET)) targetTasks = ['js-vendor', 'js-app-bg', 'js-app-fg', 'js-app-observer', 'manifest']
+    }
+    let mainTasks = ['assets', 'templates', 'translations', 'html', 'scss', 'scss-vendor']
 
-    runSequence(['assets', 'templates', 'translations', 'html', 'scss', 'scss-vendor'].concat(targetTasks), done)
+    if (settings.BUILD_TARGET === 'electron') {
+        runSequence(mainTasks, ['js-electron'], () => {
+            done()
+        })
+    } else if (settings.BUILD_TARGET === 'webview') {
+        runSequence(mainTasks, ['js-vendor', 'js-app-bg', 'js-app-fg'], () => {
+            done()
+        })
+    } else if (['chrome', 'firefox'].includes(settings.BUILD_TARGET)) {
+        runSequence(mainTasks, ['js-vendor', 'js-app-bg', 'js-app-fg', 'js-app-observer'], 'manifest', () => {
+            done()
+        })
+    }
 }, {options: taskOptions.all})
 
 
@@ -372,10 +384,7 @@ gulp.task('js-electron-main', 'Copy Electron main thread js to build.', ['js-app
 
 
 gulp.task('js-vendor', (done) => {
-    runSequence([
-        'js-vendor-bg',
-        'js-vendor-fg',
-    ], async() => {
+    runSequence('icons', 'js-vendor-bg', 'js-vendor-fg', () => {
         if (settings.LIVERELOAD) livereload.changed('web.js')
         done()
     })
@@ -387,10 +396,12 @@ gulp.task('js-vendor-bg', 'Generate third-party vendor js.', [], (done) => {
 }, {options: taskOptions.all})
 
 
-gulp.task('js-vendor-fg', 'Generate third-party vendor js.', ['icons'], (done) => {
+gulp.task('js-vendor-fg', 'Generate third-party vendor js.', (done) => {
     helpers.jsEntry(
         settings.BRAND_TARGET, settings.BUILD_TARGET, 'fg/vendor', 'vendor_fg',
-        [`./src/brand/${settings.BRAND_TARGET}/icons/index.js`], done)
+        [`./src/brand/${settings.BRAND_TARGET}/icons/index.js`], () => {
+            done()
+        })
 }, {options: taskOptions.all})
 
 
@@ -486,12 +497,26 @@ gulp.task('templates', 'Build Vue component templates', () => {
 })
 
 
-gulp.task('test', function() {
-    return gulp.src('test/**/*.js')
+gulp.task('test', 'Run all unit and integation tests', function() {
+    return gulp.src('test/bg/**/*.js')
         .pipe(tape({
             outputStream: test.createStream().pipe(colorize()).pipe(process.stdout),
-            timeout: 1000,
         }))
+})
+
+
+gulp.task('test-browser', 'Run all functional tests', function() {
+    if (!settings.LIVERELOAD) {
+        helpers.startDevServer()
+    }
+
+    return gulp.src('test/browser/**/*.js')
+        .pipe(tape({
+            outputStream: test.createStream().pipe(colorize()).pipe(process.stdout),
+        }))
+        .on('end', () => {
+            if (!settings.LIVERELOAD) process.exit(0)
+        })
 })
 
 

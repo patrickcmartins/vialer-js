@@ -67,5 +67,12 @@
                 }
             }
         }
+    },
+    "tests": {
+        "integration": {
+            "headless": false,
+            "username": "",
+            "password": ""
+        }
     }
 }
