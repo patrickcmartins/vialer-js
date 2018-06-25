@@ -373,6 +373,7 @@ class ModuleCalls extends Module {
     */
     __uaOptions() {
         const settings = this.app.state.settings
+
         // For webrtc this is a voipaccount, otherwise an email address.
         let options = {
             autostart: false,
@@ -390,7 +391,7 @@ class ModuleCalls extends Module {
             },
             traceSip: false,
             userAgentString: this._userAgent(),
-            wsServers: [`wss://${settings.sipEndpoint}`],
+            wsServers: `wss://${settings.sipEndpoint}`,
         }
 
         // Log in with the WebRTC voipaccount when it is enabled.
